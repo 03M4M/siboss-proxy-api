@@ -1,11 +1,11 @@
 const express = require('express');
 const multer = require('multer');
 const axios = require('axios');
-const FormData = require('form-data');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Menerima file MP3 dari aplikasi C# SIBOSS SPEKRUM
 const upload = multer({ storage: multer.memoryStorage() });
 
 app.post('/api/sync-lyrics', upload.single('audioFile'), async (req, res) => {
@@ -14,37 +14,38 @@ app.post('/api/sync-lyrics', upload.single('audioFile'), async (req, res) => {
             return res.status(400).json({ error: 'Tidak ada file audio yang dikirim.' });
         }
 
-        // Ambil API KEY dari brankas Heroku
         const CHUTES_API_KEY = process.env.CHUTES_API_KEY;
-
         if (!CHUTES_API_KEY) {
-            return res.status(500).json({ error: 'API Key Server belum di-setting!' });
+            return res.status(500).json({ error: 'API Key Server belum di-setting di Heroku!' });
         }
 
-        const formData = new FormData();
-        formData.append('file', req.file.buffer, { filename: 'audio.mp3', contentType: req.file.mimetype });
-        formData.append('model', 'whisper-large-v3');
-        formData.append('response_format', 'srt');
+        // 1. UBAH MP3 MENJADI FORMAT BASE64 (Sesuai permintaan Chutes)
+        const audioBase64 = req.file.buffer.toString('base64');
 
-        // Tembak ke API Chutes
-        const chutesUrl = 'https://api.chutes.ai/v1/audio/transcriptions';
+        // 2. SIAPKAN PAKET JSON (Persis seperti kode 'curl' dari web Chutes)
+        const payload = {
+            audio_b64: audioBase64
+        };
 
-        const chutesResponse = await axios.post(chutesUrl, formData, {
+        // 3. TEMBAK KE URL CHUTES
+        const chutesUrl = 'https://chutes-whisper-large-v3.chutes.ai/transcribe'; 
+        
+        const chutesResponse = await axios.post(chutesUrl, payload, {
             headers: {
-                ...formData.getHeaders(),
-                'Authorization': `Bearer ${CHUTES_API_KEY}`
+                'Authorization': `Bearer ${CHUTES_API_KEY}`,
+                'Content-Type': 'application/json'
             }
         });
 
-        // Kirim balik ke SIBOSS SPEKRUM
-        res.status(200).send(chutesResponse.data);
+        // 4. Kirim hasil lirik (teks/timestamp) kembali ke SIBOSS SPEKRUM
+        res.status(200).json(chutesResponse.data);
 
     } catch (error) {
-        console.error('Error:', error.response ? error.response.data : error.message);
-        res.status(500).json({ error: 'Gagal memproses lirik di server AI.' });
+        console.error('Error dari Chutes:', error.response ? error.response.data : error.message);
+        res.status(500).json({ error: 'Gagal memproses lirik di server AI Chutes.' });
     }
 });
 
 app.listen(port, () => {
-    console.log(`Server berjalan di port ${port}`);
+    console.log(`Server SIBOSS Proxy berjalan di port ${port}`);
 });
