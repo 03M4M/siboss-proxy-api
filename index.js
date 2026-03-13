@@ -25,7 +25,7 @@ app.post('/api/sync-lyrics', upload.single('audioFile'), async (req, res) => {
         formData.append('file', req.file.buffer, { filename: 'audio.mp3', contentType: req.file.mimetype });
         
         // Di artikel tertulis whisper-1, tapi biasanya di Chutes namanya whisper-large-v3. Kita coba yang v3 dulu.
-        formData.append('model', 'whisper-large-v3'); 
+        formData.append('model', 'openai/whisper-large-v3'); 
         
         // Minta balasan berupa SRT (agar ada Start dan End detiknya)
         formData.append('response_format', 'srt');    
